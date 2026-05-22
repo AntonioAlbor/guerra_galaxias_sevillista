@@ -113,13 +113,14 @@ def configurar_reino(conn, numero):
 
 # formula del daño: ataque menos un tercio de la defensa mas algo de aleatoriedad
 # el minimo es 5 para que la batalla siempre avance y no se quede colgada
-def calcular_danio(atacante, defensor):
+def calcular_daño(atacante, defensor):
     base = atacante.ataque - (defensor.defensa // 3)
     base += random.randint(-5, 15)
     return max(5, base)
 
 
-# funcion principal de la batalla, va turno a turno hasta que un reino se queda sin unidades
+# funcion principal de la batalla, cada unidad ataca una vez por turno a un enemigo al azar
+# si un ejercito tiene mas unidades lanza mas ataques ese turno, lo que da ventaja en cantidad
 def simular_batalla(conn1, conn2, reino1, reino2):
 
     # funcion auxiliar para no repetir el enviar dos veces cada vez
@@ -138,40 +139,37 @@ def simular_batalla(conn1, conn2, reino1, reino2):
         a_todos(f"  {reino1.nombre}: {len(reino1.naves_vivas())} naves | {len(reino1.mandas_vivos())} mandas")
         a_todos(f"  {reino2.nombre}: {len(reino2.naves_vivas())} naves | {len(reino2.mandas_vivos())} mandas")
 
-        unidades1 = reino1.naves_vivas() + reino1.mandas_vivos()
-        unidades2 = reino2.naves_vivas() + reino2.mandas_vivos()
-
-        # hacemos pocos combates por turno para que el log no sea eterno
-        num_combates = min(len(unidades1), len(unidades2), 4)
-
         a_todos("  combates:")
 
-        # reino1 ataca a reino2, atacante y defensor se eligen al azar
-        for _ in range(num_combates):
+        # cada unidad de reino1 ataca una vez a un enemigo al azar
+        for atacante in reino1.naves_vivas() + reino1.mandas_vivos():
             objetivos2 = reino2.naves_vivas() + reino2.mandas_vivos()
             if not objetivos2:
                 break
-            atacante = random.choice(unidades1)
             defensor = random.choice(objetivos2)
-            danio    = calcular_danio(atacante, defensor)
-            defensor.recibir_danio(danio)
+            daño = calcular_daño(atacante, defensor)
+            if hasattr(defensor, 'recibir_daño_nave'):
+                defensor.recibir_daño_nave(daño)
+            else:
+                defensor.recibir_daño(daño)
 
             estado = f"vida: {defensor.vida}/{defensor.vida_max}" if defensor.vivo else "DESTRUIDO"
-            a_todos(f"    {atacante.tipo} ({reino1.nombre}) -> {defensor.tipo} ({reino2.nombre}) | danio: {danio} | {estado}")
+            a_todos(f"    {atacante.tipo} ({reino1.nombre}) -> {defensor.tipo} ({reino2.nombre}) | daño: {daño} | {estado}")
 
-        # actualizamos la lista de vivos antes de que reino2 ataque
-        unidades2 = reino2.naves_vivas() + reino2.mandas_vivos()
-        for _ in range(num_combates):
+        # cada unidad de reino2 ataca una vez a un enemigo al azar
+        for atacante in reino2.naves_vivas() + reino2.mandas_vivos():
             objetivos1 = reino1.naves_vivas() + reino1.mandas_vivos()
             if not objetivos1:
                 break
-            atacante = random.choice(unidades2)
             defensor = random.choice(objetivos1)
-            danio    = calcular_danio(atacante, defensor)
-            defensor.recibir_danio(danio)
+            daño = calcular_daño(atacante, defensor)
+            if hasattr(defensor, 'recibir_daño_nave'):
+                defensor.recibir_daño_nave(daño)
+            else:
+                defensor.recibir_daño(daño)
 
             estado = f"vida: {defensor.vida}/{defensor.vida_max}" if defensor.vivo else "DESTRUIDO"
-            a_todos(f"    {atacante.tipo} ({reino2.nombre}) -> {defensor.tipo} ({reino1.nombre}) | danio: {danio} | {estado}")
+            a_todos(f"    {atacante.tipo} ({reino2.nombre}) -> {defensor.tipo} ({reino1.nombre}) | daño: {daño} | {estado}")
 
         turno += 1
         time.sleep(0.3)  # pausa pequeña para que se pueda leer algo
